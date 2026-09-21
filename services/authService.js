@@ -38,14 +38,37 @@ async function register({ username, fullName, password }) {
 
 async function login({ username, password }) {
   if (!username || !password) {
+    if (config.debugAuth) {
+      // Safe diagnostics only — never log the password itself.
+      console.log('[AUTH][DEBUG] login rejected: missing fields', {
+        hasUsername: Boolean(username),
+        hasPassword: Boolean(password),
+      });
+    }
     throw new ApiError(400, 'Username and password are required');
   }
   const user = store.users.find((u) => u.username === username);
   if (!user) {
+    if (config.debugAuth) {
+      // Pinpoints the #1 production failure mode: the account does not exist
+      // in the running process (e.g. store wiped by a restart because no
+      // DATABASE_URL/persistence was configured). Username is not a secret;
+      // passwords, hashes and tokens are NEVER logged.
+      console.log('[AUTH][DEBUG] login failed: no account with that username', {
+        username,
+        accountsInStore: store.users.length,
+      });
+    }
     throw new ApiError(401, 'Invalid credentials');
   }
   const ok = await bcrypt.compare(String(password), user.passwordHash || '');
   if (!ok) {
+    if (config.debugAuth) {
+      console.log('[AUTH][DEBUG] login failed: password does not match stored hash', {
+        username,
+        hasPasswordHash: Boolean(user.passwordHash),
+      });
+    }
     throw new ApiError(401, 'Invalid credentials');
   }
   const token = jwt.sign(

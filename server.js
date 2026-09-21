@@ -19,6 +19,8 @@ const communityRoutes = require('./routes/communityRoutes');
 const adminRoutes = require('./routes/adminRoutes');
 const { notFound, errorHandler } = require('./middleware/errorHandler');
 const { ensureSeedAdmin } = require('./services/authService');
+const persistence = require('./database/persistence');
+const { store } = require('./database/store');
 
 const app = express();
 
@@ -43,6 +45,10 @@ app.use((req, res, next) => {
   next();
 });
 
+// Persist the store after every write request (debounced inside the module).
+// This is what makes registered accounts survive restarts/redeploys.
+app.use(persistence.persistOnWrite());
+
 // Health check (no authentication required).
 app.get('/api/health', (req, res) => {
   res.json({
@@ -65,9 +71,28 @@ app.use(notFound);
 app.use(errorHandler);
 
 // Start server - listen on 0.0.0.0 to accept connections from mobile devices
-const server = app.listen(config.port, '0.0.0.0', async () => {
+//
+// Boot order matters:
+//   1. persistence.init()  — restore the last snapshot from PostgreSQL (if
+//      DATABASE_URL is set) BEFORE anything reads or seeds the store.
+//   2. ensureSeedAdmin()   — create/promote the env-configured admin account.
+//   3. persistence.saveNow() — immediately persist the seeded account.
+//   4. app.listen(...)     — only then start accepting requests.
+let server;
+(async () => {
+  await persistence.init();
+
   await ensureSeedAdmin().catch((e) => console.error('[AUTH] Admin seed failed:', e.message));
 
+  if (persistence.isEnabled()) {
+    const saved = await persistence.saveNow();
+    console.log('[DB] Initial snapshot save:', saved ? 'ok' : 'FAILED (check logs above)');
+  }
+  if (config.debugAuth) {
+    console.log(`[AUTH][DEBUG] store currently holds ${store.users.length} account(s) at boot`);
+  }
+
+  server = app.listen(config.port, '0.0.0.0', () => {
   const ip = require('os').networkInterfaces();
   let lanIp = 'unknown';
 
@@ -89,16 +114,28 @@ const server = app.listen(config.port, '0.0.0.0', async () => {
   console.log('='.repeat(60));
   console.log('Mobile app should use: http://' + lanIp + ':' + config.port + '/api');
   console.log('='.repeat(60));
-});
+  });
+})();
 
-// Graceful shutdown
-process.on('SIGTERM', () => {
-  console.log('[SERVER] SIGTERM received, shutting down gracefully');
+// Graceful shutdown — flush the data snapshot before exiting so nothing is lost.
+async function gracefulShutdown(signal) {
+  console.log(`[SERVER] ${signal} received, shutting down gracefully`);
+  try {
+    await persistence.shutdown(); // saves the latest snapshot, then closes pg
+  } catch (e) {
+    console.error('[SERVER] Shutdown save failed:', e && e.message);
+  }
+  if (!server) process.exit(0);
   server.close(() => {
     console.log('[SERVER] Closed all connections');
     process.exit(0);
   });
-});
+  // Hard exit guard in case open connections keep server.close() waiting.
+  setTimeout(() => process.exit(0), 5000).unref();
+}
+
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 
 process.on('uncaughtException', (err) => {
   console.error('[SERVER] Uncaught exception:', err);

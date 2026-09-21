@@ -9,6 +9,15 @@ require('dotenv').config();
 const config = {
   env: process.env.NODE_ENV || 'development',
   port: parseInt(process.env.PORT || '5000', 10),
+  // PostgreSQL connection used by database/persistence.js to make accounts
+  // and data survive restarts. Null => in-memory only (development fallback).
+  databaseUrl: process.env.DATABASE_URL || null,
+  // Verbose auth diagnostics (never logs passwords/hashes/secrets/tokens).
+  // Default: on outside production; in production set DEBUG_AUTH=true to
+  // temporarily diagnose login failures.
+  debugAuth:
+    process.env.DEBUG_AUTH === 'true' ||
+    (process.env.NODE_ENV || 'development') !== 'production',
   jwt: {
     // In production a strong secret is mandatory (see .env.example).
     secret: process.env.JWT_SECRET || 'dev-secret-key',
