@@ -1,8 +1,8 @@
 /**
  * Community service — public content endpoints (no authentication required,
- * same as before).
+ * same as before). Migrated to Prisma/PostgreSQL. Response shapes preserved.
  */
-const { store } = require('../database/store');
+const { prisma } = require('../prisma/client');
 
 function impactStories() {
   return { stories: [] };
@@ -14,8 +14,9 @@ function impactStoryBySlug() {
   throw err;
 }
 
-function publicEvents() {
-  return { events: store.events.slice() };
+async function publicEvents() {
+  const rows = await prisma.event.findMany({ orderBy: { createdAt: 'desc' } });
+  return { events: rows };
 }
 
 function registerForEvent() {

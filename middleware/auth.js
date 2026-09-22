@@ -8,7 +8,7 @@
  */
 const jwt = require('jsonwebtoken');
 const config = require('../config');
-const { store } = require('../database/store');
+const { prisma } = require('../prisma/client');
 
 const PUBLIC_USER_FIELDS = ['id', 'username', 'fullName', 'role', 'createdAt'];
 
@@ -21,7 +21,7 @@ function sanitizeUser(user) {
   return out;
 }
 
-function authenticateToken(req, res, next) {
+async function authenticateToken(req, res, next) {
   const header = req.headers.authorization || '';
   const token = header.startsWith('Bearer ') ? header.slice(7) : null;
   if (!token) {
@@ -29,7 +29,7 @@ function authenticateToken(req, res, next) {
   }
   try {
     const decoded = jwt.verify(token, config.jwt.secret);
-    const user = store.users.find((u) => u.id === decoded.userId);
+    const user = await prisma.user.findUnique({ where: { id: decoded.userId } });
     if (!user) {
       return res.status(401).json({ success: false, message: 'Session expired. Please log in again.' });
     }

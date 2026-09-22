@@ -1,44 +1,62 @@
 /**
  * Citizen service — dashboard, complaints, projects, meetings, announcements,
  * notifications, events, applications, programs, feedback, chat and settings.
- * Response shapes are preserved exactly as the mobile app consumes them.
+ * Migrated to Prisma/PostgreSQL. Response shapes preserved exactly as the
+ * mobile app consumes them.
  */
-const { store, nextId } = require('../database/store');
+const { prisma } = require('../prisma/client');
 const { ApiError } = require('../utils/asyncHandler');
 
-function dashboard() {
+async function dashboard() {
+  const [totalComplaints, totalProjects, totalEvents] = await Promise.all([
+    prisma.complaint.count(),
+    prisma.project.count(),
+    prisma.event.count(),
+  ]);
   return {
-    dashboard: store.dashboardData,
+    dashboard: {
+      totalComplaints: 0,
+      totalProjects: 0,
+      totalEvents: 0,
+      totalBursaryApps: 0,
+      recentActivities: [],
+    },
     userstats: {
-      totalComplaints: store.complaints.length,
-      totalProjects: store.projects.length,
-      totalEvents: store.events.length,
+      totalComplaints,
+      totalProjects,
+      totalEvents,
     },
   };
 }
 
-function complaints() {
-  return { complaints: store.complaints.slice() };
+async function complaints() {
+  const rows = await prisma.complaint.findMany({ orderBy: { createdAt: 'desc' } });
+  return { complaints: rows };
 }
 
-function complaintDetails(id) {
-  const complaint = store.complaints.find((c) => c.id === parseInt(id, 10));
+async function complaintDetails(id) {
+  const complaint = await prisma.complaint.findUnique({
+    where: { id: parseInt(id, 10) },
+  });
   if (!complaint) {
     throw new ApiError(404, 'Complaint not found');
   }
   return { complaint };
 }
 
-function submitComplaint(body, userId) {
-  const newComplaint = {
-    id: nextId(store.complaints),
-    ...(body && typeof body === 'object' ? body : {}),
-    userId,
-    status: 'Pending',
-    createdAt: new Date().toISOString(),
-    code: `CMP-${Date.now().toString(36).toUpperCase()}`,
-  };
-  store.complaints.push(newComplaint);
+async function submitComplaint(body, userId) {
+  const formData = body && typeof body === 'object' ? body : {};
+  const newComplaint = await prisma.complaint.create({
+    data: {
+      userId,
+      category: formData.category || 'Other',
+      priority: formData.priority || 'Normal',
+      description: formData.description || '',
+      village: formData.village || null,
+      status: 'Pending',
+      code: `CMP-${Date.now().toString(36).toUpperCase()}`,
+    },
+  });
   return {
     message: 'Complaint submitted successfully',
     complaintId: newComplaint.id,
@@ -54,32 +72,48 @@ function uploadComplaintAttachment() {
   return { message: 'Attachment uploaded successfully', attachment: { id: 1, name: 'document.pdf' } };
 }
 
-function projects() {
-  return { projects: store.projects.slice() };
+async function projects() {
+  const rows = await prisma.project.findMany({ orderBy: { createdAt: 'desc' } });
+  return { projects: rows };
 }
 
 function meetings() {
   return { meetings: [] };
 }
 
-function announcements() {
-  return { announcements: store.announcements.slice() };
+async function announcements() {
+  const rows = await prisma.announcement.findMany({ orderBy: { createdAt: 'desc' } });
+  return { announcements: rows };
 }
 
-function notifications() {
-  return { notifications: store.notifications.slice(), unreadCount: 0 };
+async function notifications() {
+  const rows = await prisma.notification.findMany({ orderBy: { createdAt: 'desc' } });
+  const unreadCount = await prisma.notification.count({ where: { isRead: false } });
+  return { notifications: rows, unreadCount };
 }
 
-function markNotificationRead() {
+async function markNotificationRead(id) {
+  const numericId = parseInt(id, 10);
+  if (!Number.isNaN(numericId)) {
+    await prisma.notification.updateMany({
+      where: { id: numericId },
+      data: { isRead: true },
+    });
+  }
   return { message: 'Notification marked as read' };
 }
 
-function markAllNotificationsRead() {
+async function markAllNotificationsRead() {
+  await prisma.notification.updateMany({
+    where: { isRead: false },
+    data: { isRead: true },
+  });
   return { message: 'All notifications marked as read' };
 }
 
-function events() {
-  return { events: store.events.slice() };
+async function events() {
+  const rows = await prisma.event.findMany({ orderBy: { createdAt: 'desc' } });
+  return { events: rows };
 }
 
 function applications() {

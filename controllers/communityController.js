@@ -14,7 +14,7 @@ const impactStoryBySlug = asyncHandler(async (req, res) => {
 
 const publicEvents = asyncHandler(async (req, res) => {
   console.log('[COMMUNITY] Get public events');
-  res.json(communityService.publicEvents());
+  res.json(await communityService.publicEvents());
 });
 
 const registerForEvent = asyncHandler(async (req, res) => {

@@ -9,7 +9,7 @@ const getProfile = asyncHandler(async (req, res) => {
 
 const updateProfile = asyncHandler(async (req, res) => {
   console.log('[CITIZEN] Update profile for:', req.user.username);
-  res.json(userService.updateProfile(req.authUser, req.body));
+  res.json(await userService.updateProfile(req.authUser, req.body));
 });
 
 const changePassword = asyncHandler(async (req, res) => {

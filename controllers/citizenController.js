@@ -4,22 +4,22 @@ const citizenService = require('../services/citizenService');
 
 const dashboard = asyncHandler(async (req, res) => {
   console.log('[CITIZEN] Dashboard request');
-  res.json(citizenService.dashboard());
+  res.json(await citizenService.dashboard());
 });
 
 const complaints = asyncHandler(async (req, res) => {
   console.log('[CITIZEN] Get complaints');
-  res.json(citizenService.complaints());
+  res.json(await citizenService.complaints());
 });
 
 const complaintDetails = asyncHandler(async (req, res) => {
   console.log('[CITIZEN] Get complaint details:', req.params.id);
-  res.json(citizenService.complaintDetails(req.params.id));
+  res.json(await citizenService.complaintDetails(req.params.id));
 });
 
 const submitComplaint = asyncHandler(async (req, res) => {
   console.log('[CITIZEN] Submit complaint by:', req.user.username);
-  const result = citizenService.submitComplaint(req.body, req.user.id);
+  const result = await citizenService.submitComplaint(req.body, req.user.id);
   res.status(201).json(result);
 });
 
@@ -35,7 +35,7 @@ const uploadComplaintAttachment = asyncHandler(async (req, res) => {
 
 const projects = asyncHandler(async (req, res) => {
   console.log('[CITIZEN] Get projects');
-  res.json(citizenService.projects());
+  res.json(await citizenService.projects());
 });
 
 const meetings = asyncHandler(async (req, res) => {
@@ -45,27 +45,27 @@ const meetings = asyncHandler(async (req, res) => {
 
 const announcements = asyncHandler(async (req, res) => {
   console.log('[CITIZEN] Get announcements');
-  res.json(citizenService.announcements());
+  res.json(await citizenService.announcements());
 });
 
 const notifications = asyncHandler(async (req, res) => {
   console.log('[CITIZEN] Get notifications');
-  res.json(citizenService.notifications());
+  res.json(await citizenService.notifications());
 });
 
 const markNotificationRead = asyncHandler(async (req, res) => {
   console.log('[CITIZEN] Mark notification read:', req.params.id);
-  res.json(citizenService.markNotificationRead());
+  res.json(await citizenService.markNotificationRead(req.params.id));
 });
 
 const markAllNotificationsRead = asyncHandler(async (req, res) => {
   console.log('[CITIZEN] Mark all notifications read');
-  res.json(citizenService.markAllNotificationsRead());
+  res.json(await citizenService.markAllNotificationsRead());
 });
 
 const events = asyncHandler(async (req, res) => {
   console.log('[CITIZEN] Get events');
-  res.json(citizenService.events());
+  res.json(await citizenService.events());
 });
 
 const applications = asyncHandler(async (req, res) => {

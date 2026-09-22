@@ -5,6 +5,7 @@
  */
 const bcrypt = require('bcryptjs');
 const config = require('../config');
+const { prisma } = require('../prisma/client');
 const { sanitizeUser } = require('../middleware/auth');
 const { ApiError } = require('../utils/asyncHandler');
 
@@ -50,16 +51,27 @@ function getProfile(authUser) {
   };
 }
 
-function updateProfile(authUser, body) {
+async function updateProfile(authUser, body) {
   const updates = body && typeof body === 'object' ? body : {};
+  const data = {};
   PROFILE_FIELDS.forEach((field) => {
     if (updates[field] !== undefined) {
-      authUser[field] = updates[field];
+      data[field] = updates[field];
     }
+  });
+  if (Object.keys(data).length === 0) {
+    return {
+      message: 'No changes provided',
+      user: sanitizeUser(authUser),
+    };
+  }
+  const updatedUser = await prisma.user.update({
+    where: { id: authUser.id },
+    data,
   });
   return {
     message: 'Profile updated successfully',
-    user: sanitizeUser(authUser),
+    user: sanitizeUser(updatedUser),
   };
 }
 
@@ -67,11 +79,20 @@ async function changePassword(authUser, { currentPassword, newPassword }) {
   if (!currentPassword || !newPassword) {
     throw new ApiError(400, 'Current and new password are required');
   }
-  const ok = await bcrypt.compare(String(currentPassword), authUser.passwordHash || '');
+  // Fetch fresh user with passwordHash for verification
+  const user = await prisma.user.findUnique({ where: { id: authUser.id } });
+  if (!user) {
+    throw new ApiError(401, 'Session expired. Please log in again.');
+  }
+  const ok = await bcrypt.compare(String(currentPassword), user.passwordHash || '');
   if (!ok) {
     throw new ApiError(401, 'Current password is incorrect');
   }
-  authUser.passwordHash = await bcrypt.hash(String(newPassword), config.bcryptRounds);
+  const passwordHash = await bcrypt.hash(String(newPassword), config.bcryptRounds);
+  await prisma.user.update({
+    where: { id: authUser.id },
+    data: { passwordHash },
+  });
   return { message: 'Password changed successfully' };
 }
 

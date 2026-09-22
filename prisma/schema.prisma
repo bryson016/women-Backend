@@ -1,18 +1,3 @@
-// Women Rep API — Prisma schema (single schema for this backend).
-//
-// Designed around the data models the existing backend actually uses
-// (see backend/services/* and backend/database/store.js). There is no
-// pre-existing database to conform to: the current server stores these
-// exact collections in memory, so this schema mirrors them 1:1 with proper
-// keys, constraints, indexes, timestamps and status fields.
-//
-// Activation (NOT done yet — no database server exists locally):
-//   1. Start PostgreSQL and set DATABASE_URL (see backend/.env.example).
-//   2. `npx prisma migrate dev` (creates the tables below).
-//   3. Swap `backend/database/store.js` internals for Prisma Client calls.
-// Until then the API keeps running on the current store; services,
-// controllers, routes and response shapes are unchanged.
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -21,35 +6,30 @@ datasource db {
   provider = "postgresql"
 }
 
-// Authentication identity + citizen profile in one record, exactly as the
-// backend implements it today (profile fields live on the user object;
-// there is no separate Profile table in the current implementation).
-// passwordHash is NEVER returned by any endpoint (see sanitizeUser).
 model User {
-  id                Int      @id @default(autoincrement())
-  username          String   @unique
-  fullName          String
-  passwordHash      String
-  role              String   @default("citizen") // "citizen" | "admin"
-  phoneNumber       String?
-  email             String?
-  ward              String?
-  dateOfBirth       String?
-  gender            String?
-  idDocumentType    String?
-  idNumber          String?
-  disabilityStatus  String?
-  residency         String?
-  occupation        String?
-  village           String?
-  subLocation       String?
-  physicalAddress   String?
-  emergencyContact  String?
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
-
-  complaints          Complaint[]
+  id                  Int                  @id @default(autoincrement())
+  username            String               @unique
+  fullName            String
+  passwordHash        String
+  role                String               @default("citizen")
+  phoneNumber         String?
+  email               String?
+  ward                String?
+  dateOfBirth         String?
+  gender              String?
+  idDocumentType      String?
+  idNumber            String?
+  disabilityStatus    String?
+  residency           String?
+  occupation          String?
+  village             String?
+  subLocation         String?
+  physicalAddress     String?
+  emergencyContact    String?
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
   bursaryApplications BursaryApplication[]
+  complaints          Complaint[]
   notifications       Notification[]
 
   @@index([role])
@@ -57,16 +37,16 @@ model User {
 
 model Complaint {
   id          Int      @id @default(autoincrement())
-  userId      Int? // nullable: reports may pre-date ownership tracking
-  user        User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  userId      Int?
   category    String
   priority    String   @default("Normal")
   description String
   village     String?
   status      String   @default("Pending")
-  code        String   @unique // e.g. CMP-XXXXXX
+  code        String   @unique
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+  user        User?    @relation(fields: [userId], references: [id])
 
   @@index([userId])
   @@index([status])
@@ -74,14 +54,14 @@ model Complaint {
 
 model BursaryApplication {
   id              Int      @id @default(autoincrement())
-  userId          Int // required: ownership is enforced on every access
-  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  status          String   @default("Pending") // Pending | Approved | Rejected | Withdrawn
-  applicationCode String   @unique // e.g. BUR-XXXXXX
+  userId          Int
+  status          String   @default("Pending")
+  applicationCode String   @unique
   submittedAt     DateTime @default(now())
-  data            Json? // arbitrary application form fields
+  data            Json?
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([status])
@@ -89,12 +69,12 @@ model BursaryApplication {
 
 model Notification {
   id        Int      @id @default(autoincrement())
-  userId    Int? // nullable: global/broadcast notifications have no owner
-  user      User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    Int?
   title     String?
   message   String?
   isRead    Boolean  @default(false)
   createdAt DateTime @default(now())
+  user      User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([isRead])
@@ -123,5 +103,11 @@ model Event {
   eventDate   DateTime?
   location    String?
   data        Json?
-  createdAt   DateTime @default(now())
+  createdAt   DateTime  @default(now())
+}
+
+model app_state_snapshots {
+  key        String   @id
+  data       Json
+  updated_at DateTime @default(now()) @db.Timestamptz(6)
 }

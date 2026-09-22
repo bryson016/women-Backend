@@ -1,28 +1,30 @@
 /**
- * Bursary service.
+ * Bursary service (Prisma/PostgreSQL).
  * Applications are owned by the authenticated user (`userId`); every
  * read/update/delete is ownership-checked so users can only ever see or
  * mutate their own applications.
+ * Response shapes are preserved exactly as the mobile app consumes them.
  */
-const { store, nextId } = require('../database/store');
+const { prisma } = require('../prisma/client');
 const { ApiError } = require('../utils/asyncHandler');
 
 function toPublic(application) {
-  const { userId, ...rest } = application;
-  return rest;
+  if (!application) return application;
+  const { userId, data, ...rest } = application;
+  const formFields = data && typeof data === 'object' ? data : {};
+  return { ...formFields, ...rest };
 }
 
-function apply(data, userId) {
+async function apply(data, userId) {
   const formData = data && typeof data === 'object' ? data : {};
-  const newApplication = {
-    id: nextId(store.bursaryApplications),
-    ...formData,
-    userId,
-    status: 'Pending',
-    submittedAt: new Date().toISOString(),
-    applicationCode: `BUR-${Date.now().toString(36).toUpperCase()}`,
-  };
-  store.bursaryApplications.push(newApplication);
+  const newApplication = await prisma.bursaryApplication.create({
+    data: {
+      userId,
+      status: 'Pending',
+      applicationCode: `BUR-${Date.now().toString(36).toUpperCase()}`,
+      data: formData,
+    },
+  });
   return {
     message: 'Bursary application submitted successfully',
     application: {
@@ -33,47 +35,50 @@ function apply(data, userId) {
   };
 }
 
-function myApplications(userId) {
-  return {
-    applications: store.bursaryApplications
-      .filter((a) => a.userId === userId)
-      .map(toPublic),
-  };
+async function myApplications(userId) {
+  const rows = await prisma.bursaryApplication.findMany({
+    where: { userId },
+    orderBy: { createdAt: 'desc' },
+  });
+  return { applications: rows.map(toPublic) };
 }
 
-function findOwned(id, userId) {
-  const application = store.bursaryApplications.find(
-    (a) => a.id === parseInt(id, 10) && a.userId === userId
-  );
+async function findOwned(id, userId) {
+  const application = await prisma.bursaryApplication.findFirst({
+    where: { id: parseInt(id, 10), userId },
+  });
   if (!application) {
     throw new ApiError(404, 'Application not found');
   }
   return application;
 }
 
-function myApplication(id, userId) {
-  return { application: toPublic(findOwned(id, userId)) };
+async function myApplication(id, userId) {
+  const application = await findOwned(id, userId);
+  return { application: toPublic(application) };
 }
 
-function withdraw(id, userId) {
-  const application = findOwned(id, userId);
-  application.status = 'Withdrawn';
-  return { message: 'Application withdrawn successfully', application: toPublic(application) };
+async function withdraw(id, userId) {
+  await findOwned(id, userId);
+  const updated = await prisma.bursaryApplication.update({
+    where: { id: parseInt(id, 10) },
+    data: { status: 'Withdrawn' },
+  });
+  return { message: 'Application withdrawn successfully', application: toPublic(updated) };
 }
 
-function remove(id, userId) {
-  const index = store.bursaryApplications.findIndex(
-    (a) => a.id === parseInt(id, 10) && a.userId === userId
-  );
-  if (index === -1) {
+async function remove(id, userId) {
+  const result = await prisma.bursaryApplication.deleteMany({
+    where: { id: parseInt(id, 10), userId },
+  });
+  if (result.count === 0) {
     throw new ApiError(404, 'Application not found');
   }
-  store.bursaryApplications.splice(index, 1);
   return { message: 'Application deleted successfully' };
 }
 
-function history(id, userId) {
-  findOwned(id, userId);
+async function history(id, userId) {
+  await findOwned(id, userId);
   return { history: [] };
 }
 
