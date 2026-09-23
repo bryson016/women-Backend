@@ -2,17 +2,18 @@
 const { asyncHandler } = require('../utils/asyncHandler');
 const authService = require('../services/authService');
 
+// Log lines never include the raw identifier or any credential material.
 const register = asyncHandler(async (req, res) => {
-  console.log('[AUTH] Registration attempt:', req.body && req.body.username);
+  console.log('[AUTH] Registration attempt received');
   const { user } = await authService.register(req.body || {});
-  console.log('[AUTH] User registered successfully:', user.username);
+  console.log('[AUTH] User registered successfully (id:', user.id + ')');
   res.status(201).json({ message: 'Registration successful', user });
 });
 
 const login = asyncHandler(async (req, res) => {
-  console.log('[AUTH] Login attempt:', req.body && req.body.username);
+  console.log('[AUTH] Login attempt received');
   const { token, user } = await authService.login(req.body || {});
-  console.log('[AUTH] Login successful:', user.username);
+  console.log('[AUTH] Login successful (id:', user.id + ')');
   res.json({ token, user });
 });
 

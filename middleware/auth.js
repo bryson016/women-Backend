@@ -10,7 +10,7 @@ const jwt = require('jsonwebtoken');
 const config = require('../config');
 const { prisma } = require('../prisma/client');
 
-const PUBLIC_USER_FIELDS = ['id', 'username', 'fullName', 'role', 'createdAt'];
+const PUBLIC_USER_FIELDS = ['id', 'username', 'fullName', 'role', 'email', 'phoneNumber', 'createdAt'];
 
 function sanitizeUser(user) {
   if (!user) return null;
