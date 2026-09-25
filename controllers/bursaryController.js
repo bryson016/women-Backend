@@ -9,6 +9,22 @@ const apply = asyncHandler(async (req, res) => {
   res.status(201).json(result);
 });
 
+const uploadDocument = asyncHandler(async (req, res) => {
+  const result = await bursaryService.uploadDocument(req, req.user.id);
+  res.status(201).json(result);
+});
+
+const documentContent = asyncHandler(async (req, res) => {
+  const document = await bursaryService.documentContent(req.params.id, req.user.id);
+  res.set({
+    'Content-Type': document.mimeType,
+    'Content-Length': String(document.fileSize),
+    'Content-Disposition': `inline; filename="${document.fileName.replace(/"/g, '')}"`,
+    'Cache-Control': 'private, max-age=3600',
+  });
+  res.send(document.fileData);
+});
+
 const myApplications = asyncHandler(async (req, res) => {
   console.log('[BURSARY] Get my applications for:', req.user.username);
   res.json(await bursaryService.myApplications(req.user.id));
@@ -34,4 +50,13 @@ const history = asyncHandler(async (req, res) => {
   res.json(await bursaryService.history(req.params.id, req.user.id));
 });
 
-module.exports = { apply, myApplications, myApplication, withdraw, remove, history };
+module.exports = {
+  apply,
+  uploadDocument,
+  documentContent,
+  myApplications,
+  myApplication,
+  withdraw,
+  remove,
+  history,
+};

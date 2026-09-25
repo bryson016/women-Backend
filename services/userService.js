@@ -40,12 +40,22 @@ function toCitizen(user) {
 }
 
 function getProfile(authUser) {
+  const safeUser = sanitizeUser(authUser) || {};
   return {
     user: {
-      id: authUser.id,
-      username: authUser.username,
-      fullName: authUser.fullName,
-      role: authUser.role,
+      ...safeUser,
+      fullName: authUser.fullName || '',
+      dateOfBirth: authUser.dateOfBirth || null,
+      gender: authUser.gender || null,
+      idDocumentType: authUser.idDocumentType || null,
+      idNumber: authUser.idNumber || null,
+      disabilityStatus: authUser.disabilityStatus || null,
+      residency: authUser.residency || null,
+      occupation: authUser.occupation || null,
+      village: authUser.village || null,
+      subLocation: authUser.subLocation || null,
+      physicalAddress: authUser.physicalAddress || null,
+      emergencyContact: authUser.emergencyContact || null,
     },
     citizen: toCitizen(authUser),
   };

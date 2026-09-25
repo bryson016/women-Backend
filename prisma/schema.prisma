@@ -29,6 +29,7 @@ model User {
   createdAt           DateTime             @default(now())
   updatedAt           DateTime             @updatedAt
   bursaryApplications BursaryApplication[]
+  bursaryDocuments    BursaryDocument[]
   complaints          Complaint[]
   notifications       Notification[]
 
@@ -62,9 +63,28 @@ model BursaryApplication {
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
   user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  documents       BursaryDocument[]
 
   @@index([userId])
   @@index([status])
+}
+
+model BursaryDocument {
+  id            Int                @id @default(autoincrement())
+  userId        Int
+  applicationId Int?
+  documentType  String
+  fileName      String
+  mimeType      String
+  fileSize      Int
+  fileData      Bytes
+  createdAt     DateTime           @default(now())
+  user          User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  application   BursaryApplication? @relation(fields: [applicationId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([applicationId])
+  @@index([documentType])
 }
 
 model Notification {

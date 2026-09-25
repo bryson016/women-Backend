@@ -7,9 +7,9 @@
 const { prisma } = require('../prisma/client');
 const { ApiError } = require('../utils/asyncHandler');
 
-async function dashboard() {
+async function dashboard(userId) {
   const [totalComplaints, totalProjects, totalEvents] = await Promise.all([
-    prisma.complaint.count(),
+    prisma.complaint.count({ where: { userId } }),
     prisma.project.count(),
     prisma.event.count(),
   ]);
@@ -29,14 +29,17 @@ async function dashboard() {
   };
 }
 
-async function complaints() {
-  const rows = await prisma.complaint.findMany({ orderBy: { createdAt: 'desc' } });
+async function complaints(userId) {
+  const rows = await prisma.complaint.findMany({
+    where: { userId },
+    orderBy: { createdAt: 'desc' },
+  });
   return { complaints: rows };
 }
 
-async function complaintDetails(id) {
-  const complaint = await prisma.complaint.findUnique({
-    where: { id: parseInt(id, 10) },
+async function complaintDetails(id, userId) {
+  const complaint = await prisma.complaint.findFirst({
+    where: { id: parseInt(id, 10), userId },
   });
   if (!complaint) {
     throw new ApiError(404, 'Complaint not found');
@@ -46,13 +49,20 @@ async function complaintDetails(id) {
 
 async function submitComplaint(body, userId) {
   const formData = body && typeof body === 'object' ? body : {};
+  const category = String(formData.category || '').trim();
+  const description = String(formData.description || '').trim();
+  const village = String(formData.village || '').trim();
+  if (!category || !description || !village) {
+    throw new ApiError(400, 'Category, description, and location are required.');
+  }
+
   const newComplaint = await prisma.complaint.create({
     data: {
       userId,
-      category: formData.category || 'Other',
-      priority: formData.priority || 'Normal',
-      description: formData.description || '',
-      village: formData.village || null,
+      category,
+      priority: String(formData.priority || 'Normal').trim() || 'Normal',
+      description,
+      village,
       status: 'Pending',
       code: `CMP-${Date.now().toString(36).toUpperCase()}`,
     },
@@ -61,6 +71,7 @@ async function submitComplaint(body, userId) {
     message: 'Complaint submitted successfully',
     complaintId: newComplaint.id,
     complaintCode: newComplaint.code,
+    complaint: newComplaint,
   };
 }
 

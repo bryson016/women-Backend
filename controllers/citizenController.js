@@ -4,17 +4,17 @@ const citizenService = require('../services/citizenService');
 
 const dashboard = asyncHandler(async (req, res) => {
   console.log('[CITIZEN] Dashboard request');
-  res.json(await citizenService.dashboard());
+  res.json(await citizenService.dashboard(req.user.id));
 });
 
 const complaints = asyncHandler(async (req, res) => {
-  console.log('[CITIZEN] Get complaints');
-  res.json(await citizenService.complaints());
+  console.log('[CITIZEN] Get complaints for:', req.user.id);
+  res.json(await citizenService.complaints(req.user.id));
 });
 
 const complaintDetails = asyncHandler(async (req, res) => {
   console.log('[CITIZEN] Get complaint details:', req.params.id);
-  res.json(await citizenService.complaintDetails(req.params.id));
+  res.json(await citizenService.complaintDetails(req.params.id, req.user.id));
 });
 
 const submitComplaint = asyncHandler(async (req, res) => {
